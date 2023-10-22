@@ -3,3 +3,6 @@
 
 # ignore ALL files in ANY directory named temp
 temp/
+
+# ignore build directory
+build-cellullar-Desktop_Qt_5_12_12_MinGW_64_bit-Debug\

@@ -124,12 +124,15 @@ CellularWidget::CellularWidget(QWidget* parent):
     cellthread.automaton = &automaton;
     automaton.mutex = &(cellthread.mutex);
     connect(&cellthread, SIGNAL(rendered(QImage)), this, SLOT(rendered(QImage)));
+    setMouseTracking(true);
+
 }
 
 CellularWidget::~CellularWidget() = default;
 
 void CellularWidget::resumeAutomaton()
 {
+    emit modified();
     cellthread.resume();
 }
 
@@ -146,6 +149,7 @@ void CellularWidget::resizeAutomaton(int rows, int cols)
         if ((automaton.m != cols) && (automaton.n != rows)){
             automaton.resize(rows, cols);
             refresh();
+            emit modified();
         }
     }
 }
@@ -155,6 +159,7 @@ void CellularWidget::clearAutomaton()
     if (cellthread.repose){
         automaton.clear();
         refresh();
+        emit modified();
     }
 }
 
@@ -251,6 +256,7 @@ void CellularWidget::setCell(int i, int j, char c)
     if (automaton.edit(i, j, c)){
         image.setPixel(j - 1, i - 1, automaton.colors[static_cast<int>(c)]);
         repaint();
+        emit modified();
     }
 }
 
@@ -261,6 +267,7 @@ void CellularWidget::setStateColor(char s, QColor c)
         cl &= 0x00ffffff;
         automaton.colors[static_cast<int>(s)] = cl;
         refresh();
+        emit modified();
     }
 }
 
@@ -273,6 +280,7 @@ void CellularWidget::setTransitionFunction(QString s)
 {
     if (cellthread.repose){
         automaton.compile(s);
+        emit modified();
     }
 }
 
@@ -339,6 +347,11 @@ void CellularWidget::cellFromPoint(QPoint p, int &i, int &j)
     QPoint q = imagePixelAt(p);
     i = q.y() + 1; // row
     j = q.x() + 1; // col
+}
+
+void CellularWidget::modify()
+{
+    emit modified();
 }
 
 void CellularWidget::refresh(bool rep)
@@ -483,20 +496,23 @@ void CellularWidget::mouseMoveEvent(QMouseEvent *event)
 {
     int i, j;
     QPoint p = event->pos();
-    switch (d->mode){
-    case CA_PAN:
-        if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
-            scroll(p - d->anchor);
-            d->anchor = p;
+    if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
+        switch (d->mode){
+        case CA_PAN:
+            if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
+                scroll(p - d->anchor);
+                d->anchor = p;
+            }
+            break;
+        case CA_DRAW:
+            cellFromPoint(p, i, j);
+            if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
+                setCell(i, j, d->penstate);
+            }
+            break;
         }
-        break;
-    case CA_DRAW:
-        cellFromPoint(p, i, j);
-        if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
-            setCell(i, j, d->penstate);
-        }
-        break;
     }
+    emit planning(p);
     QWidget::mouseMoveEvent(event);
 }
 
@@ -510,6 +526,12 @@ void CellularWidget::mouseReleaseEvent(QMouseEvent *event)
         }
     }
     QWidget::mouseReleaseEvent(event);
+}
+
+void CellularWidget::leaveEvent(QEvent *event)
+{
+    emit planning(QPoint{16777215, 16777215});
+    QWidget::leaveEvent(event);
 }
 
 void CellularWidget::wheelEvent(QWheelEvent *event)

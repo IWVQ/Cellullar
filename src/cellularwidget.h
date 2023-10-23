@@ -91,10 +91,13 @@ public:
     void cellFromPoint(QPoint p, int &i, int &j); // 1-indexed
 
     void scaleTo(double s);
+    void modify();
 signals:
     void readCAMetadata(QJsonObject *metadata);
     void writeCAMetadata(QJsonObject *metadata);
     void scaled(double s);
+    void planning(QPoint p);
+    void modified();
 public slots:
     void rendered(const QImage &image);
 protected:
@@ -110,6 +113,7 @@ protected:
     void mousePressEvent(QMouseEvent *event) override;
     void mouseMoveEvent(QMouseEvent *event) override;
     void mouseReleaseEvent(QMouseEvent *event) override;
+    void leaveEvent(QEvent *event) override;
     void wheelEvent(QWheelEvent *event) override;
 private:
     QImage image;

@@ -121,6 +121,10 @@ private slots:
 
     void on_actionAbout_triggered();
 
+    void on_cellauto_planning(QPoint p);
+
+    void on_cellauto_modified();
+
 protected:
     //bool eventFilter(QObject* o, QEvent* e);
 
@@ -138,12 +142,18 @@ private:
 
     Ui::MainWindow *ui;
     CellularWidget *cellauto;
-    bool modified;
+    bool modified = false;
     double proportion = NAN;
     QString currentfile = "";
 
     char selectedState = 0;
-    QLabel *statusCellCoord;
+
+    QLabel *coordStatusLbl;
+    QLabel *coordStatusImg;
+    QWidget *coordStatusWdg;
+    QHBoxLayout *coordStatusLayout;
+    QLabel *modifiedStatusLbl;
+
     QActionGroup *editactiongroup;
     StateDelegate *statedelegate;
     QListWidgetItem *addColorItem;

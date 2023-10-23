@@ -2,6 +2,8 @@
 #include "ui_mainwindow.h"
 #include <cmath>
 
+QString appname = "Cellullar";
+
 /* ColorListWidget */
 
 ColorListWidget::ColorListWidget(QWidget *parent): QListWidget(parent){}
@@ -32,6 +34,7 @@ void ColorListWidget::deleteStateItem(int index)
         cellauto->setStateColor(statecount - 1, cellauto->stateColor(0));
         delete takeItem(index);
         autoAdjustSize();
+        cellauto->modify();
     }
 }
 
@@ -48,6 +51,7 @@ void ColorListWidget::insertStateItem(int index)
     autoAdjustSize();
     // select new state
     setItemSelected(newitem, true);
+    cellauto->modify();
 }
 
 void ColorListWidget::clearStates(bool withcolors)
@@ -62,6 +66,7 @@ void ColorListWidget::clearStates(bool withcolors)
         l--;
     }
     autoAdjustSize();
+    cellauto->modify();
 }
 
 int ColorListWidget::statesCount()
@@ -202,25 +207,59 @@ MainWindow::MainWindow(QWidget *parent)
     cellauto->setVisible(true);
     cellauto->setBackColor(QColor("#d1d1d1"));
     ui->gridLayout->addWidget(cellauto, 0, 0, 1, 1);
+    cellauto->setResolution(QSize{100, 100});
+
     connect(cellauto, SIGNAL(scaled(double)), this, SLOT(on_cellauto_scaled(double)));
     connect(cellauto, SIGNAL(readCAMetadata(QJsonObject*)), this, SLOT(on_cellauto_readCAMetadata(QJsonObject*)));
     connect(cellauto, SIGNAL(writeCAMetadata(QJsonObject*)), this, SLOT(on_cellauto_writeCAMetadata(QJsonObject*)));
-    cellauto->setResolution(QSize{100, 100});
+    connect(cellauto, SIGNAL(planning(QPoint)), this, SLOT(on_cellauto_planning(QPoint)));
+    connect(cellauto, SIGNAL(modified()), this, SLOT(on_cellauto_modified()));
 
     // zoom bar
     ui->zoomCombo->lineEdit()->setAlignment(Qt::AlignRight);
     ui->statusbar->addPermanentWidget(ui->zoomWidget);
 
     // coord status
-    statusCellCoord = new QLabel(ui->toolBar);
-    statusCellCoord->setObjectName(QString::fromUtf8("statusModified"));
-    statusCellCoord->setVisible(true);
-    statusCellCoord->setMinimumSize(QSize{125, 0});
-    statusCellCoord->setMaximumSize(QSize{125, 16777215});
-    statusCellCoord->setText("1230, 4322");
-    ui->statusbar->addWidget(statusCellCoord);
 
-    //
+    coordStatusWdg = new QWidget(ui->statusbar);
+    coordStatusWdg->setObjectName(QString::fromUtf8("coordStatusWdg"));
+    coordStatusWdg->setVisible(true);
+    coordStatusWdg->setMinimumSize(QSize{100, 0});
+    coordStatusWdg->setMaximumSize(QSize{100, 16777215});
+
+    coordStatusLayout = new QHBoxLayout(coordStatusWdg);
+    coordStatusLayout->setObjectName(QString::fromUtf8("coordStatusLayout"));
+    coordStatusLayout->setContentsMargins(9, 0, 0, 0);
+
+    coordStatusImg = new QLabel(coordStatusWdg);
+    coordStatusImg->setObjectName(QString::fromUtf8("coordStatusWdg"));
+    QSizePolicy coordStatusSizePolicy = coordStatusImg->sizePolicy();
+    coordStatusSizePolicy.setHorizontalPolicy(QSizePolicy::Fixed);
+    coordStatusImg->setSizePolicy(coordStatusSizePolicy);
+    coordStatusImg->setVisible(true);
+    coordStatusImg->setPixmap(QPixmap(QString::fromUtf8(":/lucide-icons/move_16.png")));
+    coordStatusLayout->addWidget(coordStatusImg);
+
+    coordStatusLbl = new QLabel(coordStatusWdg);
+    coordStatusLbl->setObjectName(QString::fromUtf8("coordStatusLbl"));
+    coordStatusLbl->setVisible(true);
+    coordStatusLbl->setText("");
+    coordStatusLayout->addWidget(coordStatusLbl);
+
+    ui->statusbar->addWidget(coordStatusWdg);
+
+    // modified status
+
+    modifiedStatusLbl = new QLabel(ui->statusbar);
+    modifiedStatusLbl->setObjectName(QString::fromUtf8("modifiedStatusLbl"));
+    modifiedStatusLbl->setVisible(true);
+    modifiedStatusLbl->setMinimumSize(QSize{90, 0});
+    modifiedStatusLbl->setMaximumSize(QSize{90, 16777215});
+    modifiedStatusLbl->setText("");
+    ui->statusbar->addWidget(modifiedStatusLbl);
+
+    // edition group
+
     editactiongroup = new QActionGroup(this);
     editactiongroup->addAction(ui->actionMove);
     editactiongroup->addAction(ui->actionDraw);
@@ -247,7 +286,8 @@ MainWindow::MainWindow(QWidget *parent)
     colorListWidget->cellauto = cellauto;
     connect(colorListWidget, SIGNAL(itemSelectionChanged()),
             this, SLOT(on_colorListWidget_itemSelectionChanged()));
-    //
+
+    // resize side panel
 
     ui->dockWidget->setGeometry(0, 0, 100, 100);
 
@@ -302,7 +342,7 @@ void MainWindow::on_spinSizeY_valueChanged(int arg1)
 
 void MainWindow::on_editProjectName_textChanged(const QString &arg1)
 { // project name
-    modified = true;
+    projectModified();
 }
 
 void MainWindow::on_propButton_toggled(bool checked)
@@ -404,8 +444,7 @@ bool MainWindow::projectClosed()
     colorListWidget->insertStateItem(0);
     colorListWidget->insertStateItem(1);
     zoomTo(1);
-    //# status coord icon
-    statusCellCoord->setText("0, 0");
+    coordStatusLbl->setText("");
     projectModified(false);
     cellauto->clearAutomaton();
 
@@ -421,8 +460,10 @@ void MainWindow::saveToSomeFile(bool saveas)
     }
     else
         filename = currentfile;
-    if (cellauto->saveToFile(filename))
+    if (cellauto->saveToFile(filename)){
         currentfile = filename;
+        projectModified(false);
+    }
 }
 
 void MainWindow::openSomeFile()
@@ -430,14 +471,27 @@ void MainWindow::openSomeFile()
     QString filename;
     if (projectClosed()){
         filename = QFileDialog::getOpenFileName(this, tr("Open file"), "", "*.json");
-        if (cellauto->loadFromFile(filename))
+        if (cellauto->loadFromFile(filename)){
             currentfile = filename;
+            projectModified(false);
+        }
     }
 }
 
 void MainWindow::projectModified(bool yes)
 {
-
+    if (yes){
+        if (modified) return;
+        modifiedStatusLbl->setText("Modified");
+        this->setWindowTitle(appname + " - *" + currentfile);
+        modified = true;
+    }
+    else{
+        if (!modified) return;
+        modifiedStatusLbl->setText("");
+        this->setWindowTitle(appname + " - " + currentfile);
+        modified = false;
+    }
 }
 
 // zooming
@@ -535,13 +589,13 @@ bool MainWindow::scanZoomString(QString s, double &z)
 
 void MainWindow::on_actionNew_triggered()
 {
-    if (projectClosed()){}
+    if (projectClosed()){ projectModified(true);}
 }
 
 
 void MainWindow::on_actionClose_triggered()
 {
-    if (projectClosed()){}
+    if (projectClosed()){ projectModified(false);}
 }
 
 
@@ -648,5 +702,21 @@ void MainWindow::on_actionAbout_triggered()
 {
     aboutdlg->show();
     aboutdlg->raise();
+}
+
+void MainWindow::on_cellauto_planning(QPoint p)
+{
+    int x, y;
+    QSize s = cellauto->resolution();
+    cellauto->cellFromPoint(p, y, x);
+    if ((1 <= x) && (x <= s.width()) && (1 <= y) && (y <= s.height()))
+        coordStatusLbl->setText(QString::number(x) + ", " + QString::number(y));
+    else
+        coordStatusLbl->setText("");
+}
+
+void MainWindow::on_cellauto_modified()
+{
+    projectModified();
 }
 

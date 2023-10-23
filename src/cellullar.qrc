@@ -54,5 +54,6 @@
         <file>../img/unlink_l.png</file>
         <file>../doc/credits.html</file>
         <file>../LICENSE</file>
+        <file>../lucide-icons/move_16.png</file>
     </qresource>
 </RCC>

@@ -49,7 +49,7 @@ public:
 
     void resize(int dn /* rows */, int dm /* cols */)
     {
-        if ((dn == n) || (dm == m))
+        if ((dn == n) && (dm == m))
             return;
         // backup
         for(int i = 1; i <= n; i++){ // row
@@ -73,8 +73,10 @@ public:
             }
         }
         // recovering
-        for(int i = 1; i <= n; i++){ // row
-            for(int j = 1; j <= m; j++){ // col
+        int _n = qMin(n, dn);
+        int _m = qMin(m, dm);
+        for(int i = 1; i <= _n; i++){ // row
+            for(int j = 1; j <= _m; j++){ // col
                 curr[i][j] = next[i][j];
             }
         }

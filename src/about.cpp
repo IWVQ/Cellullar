@@ -1,5 +1,6 @@
 #include "about.h"
 #include "ui_about.h"
+#include "builddatetime.h"
 
 About::About(QWidget *parent) :
     QDialog(parent),
@@ -16,6 +17,7 @@ About::About(QWidget *parent) :
             SLOT(on_btngroup_buttonClicked(QAbstractButton*)));
 
     ui->textEdit->setVisible(false);
+    ui->labelBuildOn->setText("Build on " + BUILDDATETIME);
 }
 
 About::~About()

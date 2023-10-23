@@ -17,6 +17,7 @@ SOURCES += \
 
 HEADERS += \
     about.h \
+    builddatetime.h \
     cellularautomaton.h \
     cellularwidget.h \
     jshilite.h \

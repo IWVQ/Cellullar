@@ -305,11 +305,19 @@ MainWindow::~MainWindow()
 
 // other slots
 
+void MainWindow::editTransitionRule()
+{
+    //
+
+}
+
 void MainWindow::on_pushTransition_clicked()
 { // configure
     cellauto->setResolution(QSize{300, 300});
     cellauto->setMode(CA_DRAW);
     cellauto->setPenState(1);
+
+    editTransitionRule();
 }
 
 void MainWindow::on_spinStep_valueChanged(int arg1)
@@ -322,37 +330,72 @@ void MainWindow::on_spinInterval_valueChanged(int arg1)
     cellauto->setInterval(arg1);
 }
 
+// resolution
+
+bool modifiyingresolution = false;
+
+void MainWindow::loadResolution(QSize r)
+{
+    if (modifiyingresolution) return;
+
+    modifiyingresolution = true;
+    ui->spinSizeX->setValue(r.width());
+    ui->spinSizeY->setValue(r.height());
+    on_propButton_toggled(ui->propButton->isChecked());
+    modifiyingresolution = false;
+}
+
 void MainWindow::on_spinSizeX_valueChanged(int arg1)
 { // cols count (resolution)
+    if (modifiyingresolution) return;
+
+    modifiyingresolution = true;
     QSize r = cellauto->resolution();
     r.setWidth(arg1);
-    if (!isnan(proportion))
-        r.setHeight(int(arg1/proportion)); // W/H = w/h
+    if (!isnan(proportion)){
+        r.setHeight(int(arg1/proportion)); // W/H = w/h -> H = W/p
+        ui->spinSizeY->setValue(r.height());
+    }
     cellauto->setResolution(r);
+    modifiyingresolution = false;
 }
 
 void MainWindow::on_spinSizeY_valueChanged(int arg1)
 { // rows count (resolution)
+    if (modifiyingresolution) return;
+
+    modifiyingresolution = true;
     QSize r = cellauto->resolution();
     r.setHeight(arg1);
-    if (!isnan(proportion))
-        r.setWidth(int(arg1*proportion)); // W/H = w/h
+    if (!isnan(proportion)){
+        r.setWidth(int(arg1*proportion)); // W/H = w/h -> W = H*p
+        ui->spinSizeX->setValue(r.width());
+    }
     cellauto->setResolution(r);
-}
-
-void MainWindow::on_editProjectName_textChanged(const QString &arg1)
-{ // project name
-    projectModified();
+    modifiyingresolution = false;
 }
 
 void MainWindow::on_propButton_toggled(bool checked)
 { // make proportional resolution
     if (checked){
         QSize r = cellauto->resolution();
-        proportion = r.width()/r.height();
+        if (r.height() == 0) proportion = NAN;
+        else proportion = r.width()/r.height();
+        ui->propButton->setIcon(QIcon(":/img/link_l.png"));
     }
-    else
+    else{
         proportion = NAN;
+        ui->propButton->setIcon(QIcon(":/img/unlink_l.png"));
+    }
+}
+
+
+
+// --
+
+void MainWindow::on_editProjectName_textChanged(const QString &arg1)
+{ // project name
+    projectModified();
 }
 
 
@@ -659,6 +702,8 @@ void MainWindow::on_cellauto_readCAMetadata(QJsonObject *metadata)
         for (int i = 0; i < statecount; i++)
             colorListWidget->insertStateItem(0);
     }
+
+    loadResolution(cellauto->resolution());
 }
 
 void MainWindow::on_cellauto_writeCAMetadata(QJsonObject *metadata)
@@ -718,5 +763,11 @@ void MainWindow::on_cellauto_planning(QPoint p)
 void MainWindow::on_cellauto_modified()
 {
     projectModified();
+}
+
+
+void MainWindow::on_actionTransitionRule_triggered()
+{
+
 }
 

@@ -125,10 +125,14 @@ private slots:
 
     void on_cellauto_modified();
 
+    void on_actionTransitionRule_triggered();
+
 protected:
     //bool eventFilter(QObject* o, QEvent* e);
 
 private:
+    void editTransitionRule();
+    void loadResolution(QSize r);
     bool projectClosed();
     void saveToSomeFile(bool saveas = false);
     void openSomeFile();

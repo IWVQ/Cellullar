@@ -146,7 +146,7 @@ void CellularWidget::resizeAutomaton(int rows, int cols)
     if ((rows <= 0) || (cols <= 0))
         return;
     if (cellthread.repose){ // resize only if in repose
-        if ((automaton.m != cols) && (automaton.n != rows)){
+        if ((automaton.m != cols) || (automaton.n != rows)){
             automaton.resize(rows, cols);
             refresh();
             emit modified();

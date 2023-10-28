@@ -25,6 +25,19 @@ About::~About()
     delete ui;
 }
 
+void About::applyConfig(QJsonDocument *config)
+{
+    //# theme, language
+}
+
+void About::showAboutDialog()
+{
+    ui->pushButtonCredits->setChecked(false);
+    ui->pushButtonLicense->setChecked(false);
+    show();
+    raise();
+}
+
 void About::on_btngroup_buttonClicked(QAbstractButton *btn)
 {
     if (ui->pushButtonCredits->isChecked()){

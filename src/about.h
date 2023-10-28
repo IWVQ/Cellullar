@@ -16,6 +16,8 @@ public:
     explicit About(QWidget *parent = nullptr);
     ~About();
 
+    void showAboutDialog();
+    void applyConfig(QJsonDocument *config);
 private slots:
     void on_btngroup_buttonClicked(QAbstractButton *btn);
 private:

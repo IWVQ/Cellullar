@@ -7,7 +7,7 @@
     <x>0</x>
     <y>0</y>
     <width>641</width>
-    <height>536</height>
+    <height>425</height>
    </rect>
   </property>
   <property name="minimumSize">
@@ -51,18 +51,12 @@
     <property name="title">
      <string>File</string>
     </property>
-    <widget class="QMenu" name="menuRecent_files">
-     <property name="title">
-      <string>Recent files</string>
-     </property>
-    </widget>
     <addaction name="actionNew"/>
     <addaction name="actionOpen"/>
     <addaction name="actionSave"/>
     <addaction name="actionClose"/>
     <addaction name="separator"/>
     <addaction name="actionExport"/>
-    <addaction name="menuRecent_files"/>
     <addaction name="separator"/>
     <addaction name="actionPrint"/>
     <addaction name="separator"/>
@@ -103,7 +97,6 @@
     </property>
     <addaction name="actionResume"/>
     <addaction name="actionPause"/>
-    <addaction name="actionBuildRule"/>
    </widget>
    <widget class="QMenu" name="menuOptions">
     <property name="title">
@@ -218,7 +211,7 @@
            </sizepolicy>
           </property>
           <property name="text">
-           <string>Climate simulation</string>
+           <string/>
           </property>
           <property name="frame">
            <bool>false</bool>
@@ -339,7 +332,7 @@
           </sizepolicy>
          </property>
          <property name="title">
-          <string>Resolution</string>
+          <string>Size</string>
          </property>
          <layout class="QHBoxLayout" name="horizontalLayout_3">
           <property name="leftMargin">
@@ -378,7 +371,7 @@
                <number>1</number>
               </property>
               <property name="maximum">
-               <number>9999</number>
+               <number>30000</number>
               </property>
               <property name="value">
                <number>100</number>
@@ -404,7 +397,7 @@
                <number>1</number>
               </property>
               <property name="maximum">
-               <number>9999</number>
+               <number>30000</number>
               </property>
               <property name="value">
                <number>100</number>
@@ -466,18 +459,14 @@
         </widget>
        </item>
        <item>
-        <widget class="QWidget" name="widget_2" native="true">
+        <widget class="QWidget" name="widgetFill" native="true">
+         <property name="sizePolicy">
+          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+           <horstretch>0</horstretch>
+           <verstretch>0</verstretch>
+          </sizepolicy>
+         </property>
          <layout class="QVBoxLayout" name="verticalLayout_3">
-          <item>
-           <widget class="QPlainTextEdit" name="plainTextEdit">
-            <property name="font">
-             <font>
-              <family>Courier New</family>
-              <pointsize>9</pointsize>
-             </font>
-            </property>
-           </widget>
-          </item>
           <item>
            <widget class="QWidget" name="zoomWidget" native="true">
             <property name="sizePolicy">
@@ -789,6 +778,83 @@ QToolButton:hovered{
          </layout>
         </widget>
        </item>
+       <item>
+        <layout class="QHBoxLayout" name="horizontalLayout_4">
+         <property name="spacing">
+          <number>0</number>
+         </property>
+         <property name="topMargin">
+          <number>0</number>
+         </property>
+         <item>
+          <spacer name="horizontalSpacer">
+           <property name="orientation">
+            <enum>Qt::Horizontal</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>40</width>
+             <height>20</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QPushButton" name="counterBtn">
+           <property name="minimumSize">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>20</width>
+             <height>20</height>
+            </size>
+           </property>
+           <property name="text">
+            <string/>
+           </property>
+           <property name="icon">
+            <iconset resource="cellullar.qrc">
+             <normaloff>:/img/refresh_16.png</normaloff>:/img/refresh_16.png</iconset>
+           </property>
+           <property name="flat">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <widget class="QLCDNumber" name="counterLbl">
+           <property name="minimumSize">
+            <size>
+             <width>64</width>
+             <height>0</height>
+            </size>
+           </property>
+           <property name="maximumSize">
+            <size>
+             <width>64</width>
+             <height>16777215</height>
+            </size>
+           </property>
+           <property name="frameShape">
+            <enum>QFrame::NoFrame</enum>
+           </property>
+           <property name="digitCount">
+            <number>7</number>
+           </property>
+           <property name="segmentStyle">
+            <enum>QLCDNumber::Flat</enum>
+           </property>
+           <property name="intValue" stdset="0">
+            <number>0</number>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </item>
       </layout>
      </item>
     </layout>
@@ -802,6 +868,9 @@ QToolButton:hovered{
    <property name="text">
     <string>Save</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
+   </property>
   </action>
   <action name="actionOpen">
    <property name="icon">
@@ -810,6 +879,9 @@ QToolButton:hovered{
    </property>
    <property name="text">
     <string>Open</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+O</string>
    </property>
   </action>
   <action name="actionUndo">
@@ -820,6 +892,9 @@ QToolButton:hovered{
    <property name="text">
     <string>Undo</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+Z</string>
+   </property>
   </action>
   <action name="actionRedo">
    <property name="icon">
@@ -828,6 +903,9 @@ QToolButton:hovered{
    </property>
    <property name="text">
     <string>Redo</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Y</string>
    </property>
   </action>
   <action name="actionMove">
@@ -874,6 +952,9 @@ QToolButton:hovered{
    <property name="text">
     <string>Zoom in</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl++</string>
+   </property>
   </action>
   <action name="actionZoomOut">
    <property name="icon">
@@ -887,6 +968,9 @@ QToolButton:hovered{
   <action name="actionZoom100">
    <property name="text">
     <string>Zoom 100%</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+1</string>
    </property>
   </action>
   <action name="actionTransitionRule">
@@ -914,15 +998,6 @@ QToolButton:hovered{
    </property>
    <property name="text">
     <string>Pause</string>
-   </property>
-  </action>
-  <action name="actionBuildRule">
-   <property name="icon">
-    <iconset resource="cellullar.qrc">
-     <normaloff>:/lucide-icons/blocks_24.png</normaloff>:/lucide-icons/blocks_24.png</iconset>
-   </property>
-   <property name="text">
-    <string>Build trans. rule</string>
    </property>
   </action>
   <action name="actionPreferences">
@@ -955,6 +1030,9 @@ QToolButton:hovered{
    </property>
    <property name="text">
     <string>New</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+N</string>
    </property>
   </action>
   <action name="actionClear">
@@ -992,6 +1070,9 @@ QToolButton:hovered{
    </property>
    <property name="text">
     <string>Print...</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+P</string>
    </property>
   </action>
   <action name="actionDarkTheme">

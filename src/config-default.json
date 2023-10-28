@@ -1,0 +1,22 @@
+{
+    "config": "Cellullar",
+    "general":{
+        "theme": "Default",
+        "language": "English"
+    },
+    "editor":{
+        "font-family": "Lucide Console",
+        "font-size": 8,
+        "tab-size": 4,
+        "hilite-theme": "Light",
+        "tab-to-spaces": true,
+        "auto-indent": true,
+        "line-wrap": false
+    },
+    "automaton":{
+        "background": "d1d1d1",
+        "counter-digits": 7,
+        "restart-counter": false,
+        "auto-build": true
+    }
+}

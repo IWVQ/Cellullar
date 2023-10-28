@@ -6,11 +6,25 @@
 #include <QMainWindow>
 #include "cellularwidget.h"
 #include "about.h"
+#include "editdlg.h"
+#include "config.h"
 
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
+
+
+const QString defaultTransitionRule =
+        "// dcb \n"
+        "// eoa  <-- cell neighborhood (\"o\" is the current)\n"
+        "// fgh \n"
+        "(function(o, a, b, c, d, e, f, g, h){\n"
+        "  // write here\n"
+        "  return o;\n"
+        "})\n";
+const QString cellullarname = "Cellullar";
+
 
 class StateDelegate : public QStyledItemDelegate
 {
@@ -54,8 +68,17 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
+
+    enum Theme {
+        DEFAULT_THEME = 0,
+        DARK_THEME = 1
+    };
+    Q_ENUM(Theme)
+
     MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
+
+
 
 private slots:
     void on_pushTransition_clicked();
@@ -125,12 +148,39 @@ private slots:
 
     void on_cellauto_modified();
 
+    void on_cellauto_evolved();
+
     void on_actionTransitionRule_triggered();
 
+    void on_editdlg_buildTransitionRule(const QString &s);
+
+    void on_counterBtn_clicked();
+
+    void on_actionUndo_triggered();
+
+    void on_actionRedo_triggered();
+
+    void on_actionPrint_triggered();
+
+    void on_actionDarkTheme_triggered();
+
+    void on_actionDefaultTheme_triggered();
+
+    void on_actionPreferences_triggered();
+
+    void on_configdlg_saveConfig(const QJsonObject &c);
+
+    void on_actionHelp_triggered();
+
+    void on_editdlg_showHelp();
+
+    void on_editdlg_showConfig();
+
 protected:
-    //bool eventFilter(QObject* o, QEvent* e);
+    void closeEvent(QCloseEvent *event) override;
 
 private:
+    void loadTransitionRule(QString s);
     void editTransitionRule();
     void loadResolution(QSize r);
     bool projectClosed();
@@ -143,6 +193,10 @@ private:
     bool scanZoomString(QString s, double &z);
     void moveZoomSlider(int dir);
     void projectModified(bool yes = true);
+    void applyTheme(int th);
+    void applyConfig();
+    void setSelectedState(int state);
+    void createConfig();
 
     Ui::MainWindow *ui;
     CellularWidget *cellauto;
@@ -165,5 +219,9 @@ private:
     ColorListWidget *colorListWidget;
 
     About *aboutdlg;
+    EditDlg *editdlg;
+    Config *configdlg;
+
+    QJsonDocument *config;
 };
 #endif // MAINWINDOW_H

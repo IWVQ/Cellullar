@@ -55,5 +55,12 @@
         <file>../doc/credits.html</file>
         <file>../LICENSE</file>
         <file>../lucide-icons/move_16.png</file>
+        <file>../lucide-icons/menu_d_24.png</file>
+        <file>../lucide-icons/menu_l_24.png</file>
+        <file>../lucide-icons/wrap-text_d_24.png</file>
+        <file>../lucide-icons/wrap-text_l_24.png</file>
+        <file>../img/editor_24.png</file>
+        <file>../img/engine_24.png</file>
+        <file>../img/javascript_24.png</file>
     </qresource>
 </RCC>

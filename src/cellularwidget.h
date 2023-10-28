@@ -12,6 +12,7 @@
 #define CA_DRAW 1
 #define CA_PAN 2
 
+
 class CellularThread: public QThread
 {
     Q_OBJECT
@@ -24,6 +25,8 @@ public:
     void resume();
     void render();
 
+    void compile(QString s);
+
     CellularAutomaton *automaton; // ref
     int step;
     int interval; // sleep interval
@@ -31,10 +34,51 @@ public:
     bool paused;
     QMutex mutex;
     QWaitCondition condition;
+    QString source = "";
 signals:
     void rendered(const QImage &image);
 private:
     bool abort;
+
+    bool sourcemodified = false;
+};
+
+class CellHistory
+{
+public:
+    struct Action
+    {
+        bool start;
+        int i, j;
+        char before, after; // before/after cell
+    };
+
+    static const int GROW_SIZE = 64;
+    static const int MAX_ACTION_COUNT = 10000;
+
+    CellHistory();
+    ~CellHistory();
+
+    void init();
+    void ensureRoom();
+    void beginGroup();
+    void append(int i, int j, char be, char af);
+    void endGroup();
+
+    void clear();
+    bool canUndo();
+    bool canRedo();
+    Action undoStep();
+    Action redoStep();
+    bool stopUndo();
+    bool stopRedo();
+
+
+    Action *actions;
+    int groupdepth;
+    int current;
+    int count;
+    int size;
 };
 
 class CellularWidgetPrivate;
@@ -77,6 +121,7 @@ public:
     void setMode(int m);
     void setTransitionFunction(QString s);
     void setBackColor(QColor c);
+    void setEvolCounter(int c);
     int step();
     double scale();
     int interval();
@@ -87,17 +132,24 @@ public:
     int mode();
     QString transitionFunction();
     QColor backColor();
+    int evolCounter();
 
     void cellFromPoint(QPoint p, int &i, int &j); // 1-indexed
 
     void scaleTo(double s);
     void modify();
+    void undo();
+    void redo();
+    bool canUndo();
+    bool canRedo();
+    void clearHistory();
 signals:
     void readCAMetadata(QJsonObject *metadata);
     void writeCAMetadata(QJsonObject *metadata);
     void scaled(double s);
     void planning(QPoint p);
     void modified();
+    void evolved();
 public slots:
     void rendered(const QImage &image);
 protected:
@@ -107,6 +159,7 @@ protected:
     void refresh(bool rep = false);
     void boundScale();
     void boundOffset();
+    bool internalEdit(int i, int j, char c, char &old);
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void paintEvent(QPaintEvent *event) override;

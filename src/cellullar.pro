@@ -10,7 +10,10 @@ CONFIG += c++11
 
 SOURCES += \
     about.cpp \
+    cellularautomaton.cpp \
     cellularwidget.cpp \
+    config.cpp \
+    editdlg.cpp \
     jshilite.cpp \
     main.cpp \
     mainwindow.cpp
@@ -20,11 +23,15 @@ HEADERS += \
     builddatetime.h \
     cellularautomaton.h \
     cellularwidget.h \
+    config.h \
+    editdlg.h \
     jshilite.h \
     mainwindow.h
 
 FORMS += \
     about.ui \
+    config.ui \
+    editdlg.ui \
     mainwindow.ui
 
 # Default rules for deployment.

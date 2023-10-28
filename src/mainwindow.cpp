@@ -2,7 +2,9 @@
 #include "ui_mainwindow.h"
 #include <cmath>
 
-QString appname = "Cellullar";
+// dcb
+// eoa  <-- neighborhood identifiers
+// fgh
 
 /* ColorListWidget */
 
@@ -208,12 +210,14 @@ MainWindow::MainWindow(QWidget *parent)
     cellauto->setBackColor(QColor("#d1d1d1"));
     ui->gridLayout->addWidget(cellauto, 0, 0, 1, 1);
     cellauto->setResolution(QSize{100, 100});
+    cellauto->setTransitionFunction(defaultTransitionRule);
 
     connect(cellauto, SIGNAL(scaled(double)), this, SLOT(on_cellauto_scaled(double)));
     connect(cellauto, SIGNAL(readCAMetadata(QJsonObject*)), this, SLOT(on_cellauto_readCAMetadata(QJsonObject*)));
     connect(cellauto, SIGNAL(writeCAMetadata(QJsonObject*)), this, SLOT(on_cellauto_writeCAMetadata(QJsonObject*)));
     connect(cellauto, SIGNAL(planning(QPoint)), this, SLOT(on_cellauto_planning(QPoint)));
     connect(cellauto, SIGNAL(modified()), this, SLOT(on_cellauto_modified()));
+    connect(cellauto, SIGNAL(evolved()), this, SLOT(on_cellauto_evolved()));
 
     // zoom bar
     ui->zoomCombo->lineEdit()->setAlignment(Qt::AlignRight);
@@ -287,38 +291,91 @@ MainWindow::MainWindow(QWidget *parent)
     connect(colorListWidget, SIGNAL(itemSelectionChanged()),
             this, SLOT(on_colorListWidget_itemSelectionChanged()));
 
-    // resize side panel
-
-    ui->dockWidget->setGeometry(0, 0, 100, 100);
-
-    // about
+    // about dialog
 
     aboutdlg = new About(this);
+
+    // edit dialog
+    editdlg = new EditDlg();
+    editdlg->setTransitionRule(defaultTransitionRule);
+    connect(editdlg, SIGNAL(buildTransitionRule(QString)), this,
+            SLOT(on_editdlg_buildTransitionRule(QString)));
+    connect(editdlg, SIGNAL(showConfig()), this, SLOT(on_editdlg_showConfig()));
+    connect(editdlg, SIGNAL(showHelp()), this, SLOT(on_editdlg_showHelp()));
+
+    // config dialog
+
+    configdlg = new Config(this);
+
+
+    // shortcut for zoomout (Ctrl+-)
+
+    ui->actionZoomOut->setShortcut(QApplication::translate("MainWindow", "Ctrl+-", nullptr));
+
+
+
+    // new geometry for side panel
+
+    QRect dockgeo = ui->dockWidget->geometry();
+    dockgeo.setWidth(160);
+    ui->dockWidget->setGeometry(dockgeo);
+
+    // initial states
+
+    colorListWidget->insertStateItem(0);
+    colorListWidget->insertStateItem(1);
+    setSelectedState(1);
+
+    //
+    projectModified(false);
+
+    // config
+    createConfig();
 }
 
 MainWindow::~MainWindow()
 {
+    delete editdlg;
     delete ui;
 }
 
-// own slots
+// events
 
-// other slots
+void MainWindow::closeEvent(QCloseEvent *event)
+{
+    if (projectClosed()){
+        editdlg->close();
+        event->accept();
+    }
+    else
+        event->ignore();
+}
+
+// transition rule
+
+void MainWindow::on_editdlg_buildTransitionRule(const QString &s)
+{
+    cellauto->setTransitionFunction(s);
+}
+
+void MainWindow::loadTransitionRule(QString s)
+{
+    cellauto->setTransitionFunction(s);
+    editdlg->setTransitionRule(s);
+}
 
 void MainWindow::editTransitionRule()
 {
     //
-
+    editdlg->showEditDialog(cellauto->transitionFunction());
 }
 
 void MainWindow::on_pushTransition_clicked()
-{ // configure
-    cellauto->setResolution(QSize{300, 300});
-    cellauto->setMode(CA_DRAW);
-    cellauto->setPenState(1);
-
+{
     editTransitionRule();
 }
+
+//  --
 
 void MainWindow::on_spinStep_valueChanged(int arg1)
 { // step
@@ -447,11 +504,11 @@ void MainWindow::on_actionErase_triggered(bool checked)
 
 void MainWindow::on_actionResume_triggered()
 {
-    cellauto->setTransitionFunction(ui->plainTextEdit->toPlainText());
+    cellauto->setTransitionFunction(editdlg->transitionRule());
     cellauto->resumeAutomaton();
     ui->actionPause->setEnabled(true);
     ui->actionResume->setEnabled(false);
-    //# write running status
+    editdlg->setRunning(true);
 }
 
 void MainWindow::on_actionPause_triggered()
@@ -459,24 +516,29 @@ void MainWindow::on_actionPause_triggered()
     cellauto->pauseAutomaton();
     ui->actionPause->setEnabled(false);
     ui->actionResume->setEnabled(true);
-    //# write paused status
+    editdlg->setRunning(false);
 }
 
 bool MainWindow::projectClosed()
 {
-    QMessageBox::StandardButton btn;
-    btn = QMessageBox::question(this, "Question", "Are you sure to close this project?",
-                                QMessageBox::Yes | QMessageBox::No |
-                                 QMessageBox::Cancel, QMessageBox::Yes);
-    if ((btn != QMessageBox::Yes) && (btn != QMessageBox::No))
-        return false; // canceled
+    if (modified){
+        QMessageBox::StandardButton btn;
+        btn = QMessageBox::question(this, "Question", "Do you want to save this project?",
+                                    QMessageBox::Yes | QMessageBox::No |
+                                     QMessageBox::Cancel, QMessageBox::Yes);
+        if ((btn != QMessageBox::Yes) && (btn != QMessageBox::No))
+            return false; // canceled
 
-    if (btn == QMessageBox::Yes){
-        saveToSomeFile();
+        if (btn == QMessageBox::Yes){
+            saveToSomeFile();
+        }
     }
+    else
+        currentfile = "";
+
 
     ui->editProjectName->setText("");
-    //# transition to empty or initial
+    loadTransitionRule(defaultTransitionRule);
     ui->spinStep->setValue(1);
     ui->spinInterval->setValue(500);
     ui->spinSizeX->setValue(100);
@@ -486,10 +548,15 @@ bool MainWindow::projectClosed()
     cellauto->setStateColor(1, Qt::black);
     colorListWidget->insertStateItem(0);
     colorListWidget->insertStateItem(1);
+    setSelectedState(1);
     zoomTo(1);
     coordStatusLbl->setText("");
-    projectModified(false);
     cellauto->clearAutomaton();
+
+    coordStatusLbl->setText("");
+    ui->propButton->setChecked(false);
+
+    projectModified(false);
 
     return true;
 }
@@ -526,13 +593,13 @@ void MainWindow::projectModified(bool yes)
     if (yes){
         if (modified) return;
         modifiedStatusLbl->setText("Modified");
-        this->setWindowTitle(appname + " - *" + currentfile);
+        this->setWindowTitle(cellullarname + " - *" + currentfile);
         modified = true;
     }
     else{
         if (!modified) return;
         modifiedStatusLbl->setText("");
-        this->setWindowTitle(appname + " - " + currentfile);
+        this->setWindowTitle(cellullarname + " - " + currentfile);
         modified = false;
     }
 }
@@ -628,6 +695,13 @@ bool MainWindow::scanZoomString(QString s, double &z)
     return ok;
 }
 
+// themes
+
+void MainWindow::applyTheme(int th)
+{
+    //#
+}
+
 // ---
 
 void MainWindow::on_actionNew_triggered()
@@ -641,6 +715,16 @@ void MainWindow::on_actionClose_triggered()
     if (projectClosed()){ projectModified(false);}
 }
 
+// states
+
+void MainWindow::setSelectedState(int state)
+{
+    if ((state >= 0) and (state < colorListWidget->statesCount())){
+        colorListWidget->setCurrentRow(state);
+        selectedState = state;
+        cellauto->setPenState(state);
+    }
+}
 
 void MainWindow::on_colorListWidget_itemClicked(QListWidgetItem *item)
 {
@@ -655,8 +739,7 @@ void MainWindow::on_colorListWidget_itemClicked(QListWidgetItem *item)
         cellauto->setStateColor(state, newcolor);
         // create item
         colorListWidget->insertStateItem(state);
-        selectedState = state;
-        cellauto->setPenState(state);
+        setSelectedState(state);
     }
     else if (item == delColorItem){
         int state = colorListWidget->statesCount() - 1;
@@ -692,6 +775,7 @@ void MainWindow::on_cellauto_readCAMetadata(QJsonObject *metadata)
 {
     QJsonValue projectname = metadata->value("project");
     QJsonValue states = metadata->value("states");
+    QJsonValue counter = metadata->value("counter");
 
     if (projectname.isString())
         ui->editProjectName->setText(projectname.toString());
@@ -701,8 +785,11 @@ void MainWindow::on_cellauto_readCAMetadata(QJsonObject *metadata)
         colorListWidget->clearStates(false);
         for (int i = 0; i < statecount; i++)
             colorListWidget->insertStateItem(0);
+        setSelectedState(1);
     }
-
+    ui->counterLbl->display(counter.toInt(0));
+    cellauto->setEvolCounter(counter.toInt(0));
+    loadTransitionRule(cellauto->transitionFunction());
     loadResolution(cellauto->resolution());
 }
 
@@ -710,29 +797,35 @@ void MainWindow::on_cellauto_writeCAMetadata(QJsonObject *metadata)
 {
     metadata->insert("project", ui->editProjectName->text());
     metadata->insert("states", colorListWidget->statesCount());
+    metadata->insert("counter", cellauto->evolCounter());
 }
+
+//
 
 void MainWindow::on_actionZoomIn_triggered()
 {
-    moveZoomSlider(1);
+    if (cellauto->hasFocus())
+        moveZoomSlider(1);
 }
 
 
 void MainWindow::on_actionZoomOut_triggered()
 {
-    moveZoomSlider(-1);
+    if (cellauto->hasFocus())
+        moveZoomSlider(-1);
 }
 
 
 void MainWindow::on_actionZoom100_triggered()
 {
-    zoomTo(1);
+    if (cellauto->hasFocus())
+        zoomTo(1);
 }
 
 
 void MainWindow::on_actionExit_triggered()
 {
-
+    close();
 }
 
 
@@ -745,8 +838,7 @@ void MainWindow::on_actionClear_triggered()
 
 void MainWindow::on_actionAbout_triggered()
 {
-    aboutdlg->show();
-    aboutdlg->raise();
+    aboutdlg->showAboutDialog();
 }
 
 void MainWindow::on_cellauto_planning(QPoint p)
@@ -765,9 +857,129 @@ void MainWindow::on_cellauto_modified()
     projectModified();
 }
 
+void MainWindow::on_cellauto_evolved()
+{
+    ui->counterLbl->display(cellauto->evolCounter());
+}
+
 
 void MainWindow::on_actionTransitionRule_triggered()
 {
+    editTransitionRule();
+}
 
+
+void MainWindow::on_counterBtn_clicked()
+{
+    ui->counterLbl->display(0);
+    cellauto->setEvolCounter(0);
+}
+
+
+void MainWindow::on_actionUndo_triggered()
+{
+    if (cellauto->hasFocus()) { cellauto->undo();}
+}
+
+
+void MainWindow::on_actionRedo_triggered()
+{
+    if (cellauto->hasFocus()) { cellauto->redo();}
+}
+
+
+void MainWindow::on_actionPrint_triggered()
+{ //# print
+
+}
+
+
+void MainWindow::on_actionDarkTheme_triggered()
+{
+    applyTheme(DARK_THEME);
+}
+
+
+void MainWindow::on_actionDefaultTheme_triggered()
+{
+    applyTheme(DEFAULT_THEME);
+}
+
+// settings
+
+void MainWindow::createConfig()
+{
+    QByteArray data;
+    QFile loadfile("config.json");
+    if (!loadfile.open(QIODevice::ReadOnly)) {
+        qWarning("Couldn't open config file.");
+        QFile loadfile("config-default.json");
+        data = loadfile.readAll();
+    }
+    else{
+        data = loadfile.readAll();
+    }
+    config = new QJsonDocument(QJsonDocument::fromJson(data));
+
+    connect(configdlg, SIGNAL(saveConfig(QJsonObject)), this,
+            SLOT(on_configdlg_saveConfig(QJsonObject)));
+
+    applyConfig();
+}
+
+void MainWindow::applyConfig()
+{
+    //# apply on me, theme, language
+    QJsonObject json = config->object();
+    QJsonValue v = json["automaton"];
+    if (v.isObject()){
+        QJsonObject json_automaton = v.toObject();
+        v = json_automaton["counter-digits"];
+        ui->counterLbl->setDigitCount(v.toInt(1));
+        v = json_automaton["background"];
+        bool ok;
+        QColor cl = v.toString().toUInt(&ok, 16);
+        cellauto->setBackColor(cl);
+    }
+    //# restart-counter, auto-build
+    // apply on dialogs
+    aboutdlg->applyConfig(config);
+    configdlg->applyConfig(config);
+    editdlg->applyConfig(config);
+}
+
+void MainWindow::on_configdlg_saveConfig(const QJsonObject &c)
+{
+    delete config;
+    config = new QJsonDocument(c);
+    applyConfig();
+
+    QJsonObject json = config->object();
+    QFile savefile("config.json");
+    if (savefile.open(QIODevice::WriteOnly))
+        savefile.write(QJsonDocument(json).toJson());
+}
+
+void MainWindow::on_actionPreferences_triggered()
+{
+    configdlg->showConfig(config);
+}
+
+
+void MainWindow::on_editdlg_showConfig()
+{
+    configdlg->showConfig(config, Config::Sub_Editor);
+}
+
+// help
+
+void MainWindow::on_actionHelp_triggered()
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile("tutorial.md"));
+}
+
+void MainWindow::on_editdlg_showHelp()
+{
+    QDesktopServices::openUrl(QUrl::fromLocalFile("tutorial.md"));
 }
 

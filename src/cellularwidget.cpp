@@ -1,5 +1,8 @@
 #include "cellularwidget.h"
 
+#include <stdio.h>
+#include <string.h>
+
 #include <QtGlobal>
 #include <QApplication>
 #include <QMouseEvent>
@@ -35,6 +38,13 @@ CellularThread::~CellularThread()
 void CellularThread::run()
 {
     while(!abort){
+        if (sourcemodified){
+            mutex.lock();
+            automaton->compile(source);
+            sourcemodified = false;
+            mutex.unlock();
+        }
+
         automaton->evolve(step);
         render(); // necesary for current state
         if (abort) break;
@@ -78,6 +88,123 @@ void CellularThread::render()
     emit rendered(image);
 }
 
+void CellularThread::compile(QString s)
+{
+    if (repose){
+        source = s;
+        sourcemodified = true;
+    }
+}
+
+/* CellHistory */
+
+CellHistory::CellHistory()
+{
+    init();
+}
+
+CellHistory::~CellHistory()
+{
+    delete [] actions;
+}
+
+void CellHistory::init()
+{
+    groupdepth = 0;
+    size = GROW_SIZE;
+    actions = new Action[size];
+    current = 0;
+    count = 0;
+    actions[current].start = true;
+}
+
+void CellHistory::ensureRoom()
+{
+    if (count + 1 == size){
+        if (size == MAX_ACTION_COUNT){
+            // move back by GROW_SIZE
+            memmove(actions, actions + GROW_SIZE, sizeof(Action)*(MAX_ACTION_COUNT - GROW_SIZE));
+            count -= GROW_SIZE;
+            current -= GROW_SIZE;
+        }
+        else{
+            size += GROW_SIZE;
+            if (size > MAX_ACTION_COUNT) size = MAX_ACTION_COUNT;
+            Action *newactions = new Action[size];
+            // copy from
+            memcpy(newactions, actions, (count + 1) * sizeof(Action));
+            delete [] actions;
+            actions = newactions;
+            newactions = nullptr;
+        }
+    }
+}
+
+void CellHistory::beginGroup()
+{
+    if (groupdepth == 0)
+        actions[current].start = true;
+    groupdepth++;
+}
+
+void CellHistory::append(int i, int j, char be, char af)
+{
+    ensureRoom();
+    //
+    actions[current].i = i;
+    actions[current].j = j;
+    actions[current].before = be;
+    actions[current].after = af;
+    current++;
+    actions[current].start = false;
+    count = current; // new count
+}
+
+void CellHistory::endGroup()
+{
+    groupdepth--;
+    if (groupdepth == 0)
+        actions[current].start = true;
+}
+
+void CellHistory::clear()
+{
+    delete [] actions;
+    init();
+}
+
+bool CellHistory::canUndo()
+{
+    return current > 0;
+}
+
+bool CellHistory::canRedo()
+{
+    return current < count;
+}
+
+CellHistory::Action CellHistory::undoStep()
+{
+    current--;
+    return actions[current];
+}
+
+CellHistory::Action CellHistory::redoStep()
+{
+    return actions[current];
+    current ++;
+}
+
+bool CellHistory::stopUndo()
+{
+    return actions[current].start || (current == 0);
+}
+
+bool CellHistory::stopRedo()
+{
+    return actions[current].start || (current == count);
+}
+
 /* CellularWidgetPrivate */
 
 class CellularWidgetPrivate
@@ -97,7 +224,7 @@ public:
     QColor backcolor;
 
     int mode;
-
+    CellHistory history;
 };
 
 CellularWidgetPrivate::CellularWidgetPrivate(CellularWidget *qq):q(qq)
@@ -125,13 +252,14 @@ CellularWidget::CellularWidget(QWidget* parent):
     automaton.mutex = &(cellthread.mutex);
     connect(&cellthread, SIGNAL(rendered(QImage)), this, SLOT(rendered(QImage)));
     setMouseTracking(true);
-
+    setFocusPolicy(Qt::WheelFocus);
 }
 
 CellularWidget::~CellularWidget() = default;
 
 void CellularWidget::resumeAutomaton()
 {
+    clearHistory();
     emit modified();
     cellthread.resume();
 }
@@ -158,6 +286,7 @@ void CellularWidget::clearAutomaton()
 {
     if (cellthread.repose){
         automaton.clear();
+        clearHistory(); //#
         refresh();
         emit modified();
     }
@@ -199,6 +328,7 @@ bool CellularWidget::loadFromFile(QString s)
         QJsonObject json = jdoc.object();
 
         if (automaton.readFromJSON(json)){
+            clearHistory();
             QJsonValue v = json["metadata"];
             if (v.isObject()){
                 QJsonObject metadata = v.toObject();
@@ -253,9 +383,9 @@ void CellularWidget::setPenState(char c)
 
 void CellularWidget::setCell(int i, int j, char c)
 {
-    if (automaton.edit(i, j, c)){
-        image.setPixel(j - 1, i - 1, automaton.colors[static_cast<int>(c)]);
-        repaint();
+    char o;
+    if (internalEdit(i, j, c, o)){
+        d->history.append(i, j, o, c);
         emit modified();
     }
 }
@@ -278,8 +408,8 @@ void CellularWidget::setMode(int m)
 
 void CellularWidget::setTransitionFunction(QString s)
 {
-    if (cellthread.repose){
-        automaton.compile(s);
+    if ((cellthread.repose) && (s != cellthread.source)){
+        cellthread.compile(s);
         emit modified();
     }
 }
@@ -290,6 +420,11 @@ void CellularWidget::setBackColor(QColor c)
         d->backcolor = c;
         update();
     }
+}
+
+void CellularWidget::setEvolCounter(int c)
+{
+    automaton.setCounter(c);
 }
 
 int CellularWidget::step()
@@ -334,12 +469,17 @@ int CellularWidget::mode()
 
 QString CellularWidget::transitionFunction()
 {
-    return automaton.source;
+    return cellthread.source;
 }
 
 QColor CellularWidget::backColor()
 {
     return d->backcolor;
+}
+
+int CellularWidget::evolCounter()
+{
+    return automaton.counter;
 }
 
 void CellularWidget::cellFromPoint(QPoint p, int &i, int &j)
@@ -352,6 +492,50 @@ void CellularWidget::cellFromPoint(QPoint p, int &i, int &j)
 void CellularWidget::modify()
 {
     emit modified();
+}
+
+
+void CellularWidget::undo()
+{
+    if (canUndo()){
+        char o;
+        CellHistory::Action action;
+        do{
+            action = d->history.undoStep();
+            if (internalEdit(action.i, action.j, action.before, o))
+                emit modified();
+        }
+        while (!d->history.stopUndo());
+    }
+}
+
+void CellularWidget::redo()
+{
+    if (canRedo()){
+        char o;
+        CellHistory::Action action;
+        do{
+            action = d->history.redoStep();
+            if (internalEdit(action.i, action.j, action.after, o))
+                emit modified();
+        }
+        while (!d->history.stopRedo());
+    }
+}
+
+bool CellularWidget::canUndo()
+{
+    return (cellthread.repose && d->history.canUndo());
+}
+
+bool CellularWidget::canRedo()
+{
+    return (cellthread.repose && d->history.canRedo());
+}
+
+void CellularWidget::clearHistory()
+{
+    d->history.clear();
 }
 
 void CellularWidget::refresh(bool rep)
@@ -438,12 +622,23 @@ QPoint CellularWidget::imagePixelAt(QPoint p)
     return (p - d->offset)/d->scale;
 }
 
+bool CellularWidget::internalEdit(int i, int j, char c, char &old)
+{
+    if (automaton.edit(i, j, c)){
+        image.setPixel(j - 1, i - 1, automaton.colors[static_cast<int>(c)]);
+        repaint();
+        return true;
+    }
+    return false;
+}
+
 void CellularWidget::rendered(const QImage &image)
 {
     cellthread.mutex.lock();
     this->image = image;
     cellthread.mutex.unlock();
     repaint();
+    emit evolved();
 }
 
 void CellularWidget::paintEvent(QPaintEvent *event)
@@ -485,6 +680,7 @@ void CellularWidget::mousePressEvent(QMouseEvent *event)
     case CA_DRAW:
         cellFromPoint(p, i, j);
         if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton){
+            d->history.beginGroup();
             setCell(i, j, d->penstate);
         }
         break;
@@ -519,7 +715,11 @@ void CellularWidget::mouseMoveEvent(QMouseEvent *event)
 void CellularWidget::mouseReleaseEvent(QMouseEvent *event)
 {
     QPoint p = event->pos();
-    if (d->mode == CA_PAN){
+    if (d->mode == CA_DRAW){
+        if ((Qt::LeftButton & event->buttons()) == Qt::LeftButton)
+            d->history.endGroup();
+    }
+    else if (d->mode == CA_PAN){
         if (event->button() == Qt::LeftButton) {
             scroll(p - d->anchor);
             d->anchor = QPoint();
